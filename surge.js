@@ -60,10 +60,10 @@
   ];
   
   let config;
-  if ($drive.exists("surge1.conf")) {
+  if ($drive.exists("surge.conf")) {
     try {
-      let file = $drive.read("surge1.conf");
-      config = JSON.parse($drive.read("surge1.conf").string)
+      let file = $drive.read("surge.conf");
+      config = JSON.parse($drive.read("surge.conf").string)
     } catch (err) {
       initConfig()
     }
@@ -126,7 +126,7 @@
       data: $data({
         string: JSON.stringify(result)
       }),
-      path: "surge1.conf"
+      path: "surge.conf"
     })
   }
   
@@ -182,7 +182,7 @@
   hostname=${config.hostname.split('\n').join(',')},${remoteRule.Hostname.split('\n').join(',')}
   ${config.MITM}`;
   console.log(result)
-    $share.sheet([config.filename || "surge1.conf", $data({
+    $share.sheet([config.filename || "surge.conf", $data({
       string: result
     })]);
     $ui.loading(false)
