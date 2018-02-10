@@ -21,13 +21,15 @@
     ];
   const fields = [{ 
       name: 'filename',
-      text: '生成的配置文件名'
+      text: '生成的配置文件名(必填)'
     },
     {
       name: 'General',
+      text: '(必填)'
     },
     {
       name: 'Proxy',
+      text: '(必填)'
     },
     {
       name: 'Custom',
