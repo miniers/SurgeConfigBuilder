@@ -180,8 +180,8 @@
   [SSID Setting]
   ${config.SSID}
   
-  [MITM]
-  hostname=${config.hostname.split('\n').join(',')},${remoteRule.Hostname.split('\n').join(',')}
+  ${config.MITM?'[MITM]':''}
+  ${config.MITM?`hostname=${config.hostname.split('\n').join(',')},${remoteRule.Hostname.split('\n').join(',')}`:''}
   ${config.MITM}`;
   console.log(result)
     $share.sheet([config.filename || "surge.conf", $data({
