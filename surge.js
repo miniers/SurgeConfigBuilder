@@ -243,7 +243,7 @@
         title: "生成配置"
       },
       layout: function (make) {
-        make.left.right.bottom.inset(10)
+        make.left.right.top.inset(10)
         make.height.equalTo(32)
       },
       events: {
@@ -276,8 +276,8 @@
     }, {
       type: "list",
       layout: function (make) {
-        make.left.top.right.equalTo(0)
-        make.bottom.equalTo($("button").top).offset(0)
+        make.left.bottom.right.equalTo(0)
+        make.top.equalTo($("button").bottom).offset(0)
       },
       props: {
         rowHeight: 150,
