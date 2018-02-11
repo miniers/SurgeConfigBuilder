@@ -6,6 +6,7 @@
    */
   const _ = require('lodash');
   $app.autoKeyboardEnabled = true;
+  $app.keyboardToolbarEnabled = true;
   let baseUrl = "https://raw.githubusercontent.com/lhie1/Surge/master/Auto/",
     surgeList = [
       'Apple',
