@@ -17,7 +17,6 @@
       'REJECT',
       'URL REJECT',
       'URL REWRITE',
-      'VIDEO REJECT',
     ];
   const fields = [{ 
       name: 'filename',
@@ -77,6 +76,7 @@
   
     config = {
       filename: 'surge.conf',
+      remoteSwitch:{},
       'General': `// Auto
   loglevel = notify
   dns-server = system
@@ -135,55 +135,70 @@
   function buildFile() {
     var ProxyList = getProxyName(config.Proxy).join(',');
     var result = `
-  [General]
-  ${config.General}
-  [Proxy] 
-  🚀 Direct = direct
-  ${config.Proxy}
-  ${config.extProxy}
+[General]
+${config.General}
+[Proxy] 
+🚀 Direct = direct
+# my Proxy
+${config.Proxy}
+# my extProxy
+${config.extProxy}
   
-  [Proxy Group]
-  🍃 Proxy = select, 🏃 Auto, 🚀 Direct,${ProxyList}
-  🍂 Domestic = select, 🚀 Direct, 🍃 Proxy
-  🍎 Only = select, 🚀 Direct,${ProxyList}
-  ☁️ Others =  select,🚀 Direct,🍃 Proxy
-  🏃 Auto = url-test,${ProxyList},url = http://www.gstatic.com/generate_204, interval = 1200
-  ${config.extProxyGroup}  
+[Proxy Group]
+🍃 Proxy = select, 🏃 Auto, 🚀 Direct,${ProxyList}
+🍂 Domestic = select, 🚀 Direct, 🍃 Proxy
+🍎 Only = select, 🚀 Direct,${ProxyList}
+☁️ Others =  select,🚀 Direct,🍃 Proxy
+🏃 Auto = url-test,${ProxyList},url = http://www.gstatic.com/generate_204, interval = 1200
+# my extProxyGroup
+${config.extProxyGroup}  
   
-  [Rule]
-  ${config.Custom}
-  ${remoteRule.Apple}
-  ${remoteRule.REJECT}
-  ${remoteRule.PROXY}
-  ${remoteRule.DIRECT}
-  ${remoteRule['VIDEO REJECT']}
+[Rule]
+# my custom
+${config.Custom}
+# remote Apple
+${remoteRule.Apple}
+# remote REJECT
+${remoteRule.REJECT}
+# remote PROXY
+${remoteRule.PROXY}
+# remote DIRECT
+${remoteRule.DIRECT}
+
+# my ipRule  
+${config.ipRule}
+// Detect local network
+GEOIP,CN,🍂 Domestic
+// Use Proxy for all others
+FINAL,☁️ Others
+
+[Host]
+# my host  
+${config.Host}
+# remote HOST
+${remoteRule['HOST']}
   
-  ${config.ipRule}
-  // Detect local network
-  GEOIP,CN,🍂 Domestic
-  // Use Proxy for all others
-  FINAL,☁️ Others
-  
-  [Host]
-  ${config.Host}
-  ${remoteRule['HOST']}
-   
-  
-  [URL Rewrite] 
-  ${config.Rewrite}
-  ${remoteRule['URL REWRITE']}
-  ${remoteRule['URL REJECT']}
-  
-  [Header Rewrite]
-  ${remoteRule['HEADER REWRITE']}
-  
-  [SSID Setting]
-  ${config.SSID}
-  
-  ${config.MITM?'[MITM]':''}
-  ${config.MITM?`hostname=${config.hostname.split('\n').join(',')},${remoteRule.Hostname.split('\n').join(',')}`:''}
-  ${config.MITM}`;
-  console.log(result)
+
+[URL Rewrite] 
+# my Rewrite
+${config.Rewrite}
+# remote URL REWRITE
+${remoteRule['URL REWRITE']}
+# remote URL REJECT
+${remoteRule['URL REJECT']}
+
+[Header Rewrite]
+# remote HEADER REWRITE
+${remoteRule['HEADER REWRITE']}
+
+[SSID Setting]
+# my SSID
+${config.SSID}
+
+# MITM
+${config.MITM?'[MITM]':''}
+${config.MITM?`hostname=${config.hostname.split('\n').join(',')},${remoteRule.Hostname.split('\n').join(',')}`:''}
+${config.MITM}`;
     $share.sheet([config.filename || "surge.conf", $data({
       string: result
     })]);
@@ -201,6 +216,11 @@
   function build() {
     _.forEach(surgeList, function (name) {
       $console.info(name);
+      if(config.remoteSwitch[name]===false){
+        remoteIsDone++;
+        remoteRule[name] = '';
+        return;
+      }
       $http.get({
         url: encodeURI([baseUrl, name, '.conf'].join('')),
         handler: function ({data}) {
@@ -234,7 +254,14 @@
     // $ui.alert(deleted.join('\n'))
     return result.join('\n')
   };
-  
+  const changeRemoteSwitch=function(key){
+    let switchBtn = $(`switch-${key}`);
+    config.remoteSwitch[key] = !switchBtn.on;
+    switchBtn.on = config.remoteSwitch[key];
+    console.log(`${key} = ${switchBtn.on}`)
+  }
+
+
   $ui.render({
     layout: $layout.fill,
     views: [{
@@ -248,16 +275,10 @@
       },
       events: {
         tapped: function (sender) {
-          // var success = $drive.write({
-          //   data: $data({string: "Hello, World!"}),
-          //   path: "demo.txt"
-          // })
-          // // $ui.alert(success);
-          //
-          // let aa = $drive.list('')
-          // $ui.alert(aa);
           $ui.loading(true)
-          let result = {};
+          let result = {
+            ...config
+          };
           fields.forEach((cus) => {
             let cfg = cus;
             if (typeof cus === 'string') {
@@ -279,8 +300,13 @@
         make.left.bottom.right.equalTo(0)
         make.top.equalTo($("button").bottom).offset(0)
       },
+      events:{
+        rowHeight:function(sender,indexPath){
+       
+          return fields.length === indexPath.section?50:150;
+        }
+      },
       props: {
-        rowHeight: 150,
         data: fields.map(function (cus) {
           let cfg = cus;
           if (typeof cus === 'string') {
@@ -301,7 +327,49 @@
               }
             }]
           }
-        })
+        }).concat([{
+          title:`远程规则开关`,
+          rows:surgeList.map((key)=>{
+            return {
+              type:'view',
+              props:{},
+              layout:$layout.fill,
+              events:{
+                tapped:function(sender){
+                  changeRemoteSwitch(key);
+                }
+              },
+              views:[
+                {
+                  type:`switch`,
+                  props:{
+                    id:`switch-${key}`,
+                    on:config.remoteSwitch[key]!==false
+                  },
+                  layout:function(make,view){
+                    make.left.top.equalTo(10)
+                  },
+                  events:{
+                    changed:function(sender){
+                      changeRemoteSwitch(key);
+                    }
+                  }
+                },
+                {
+                  type:'label',
+                  props:{
+                    text:key,
+                    align:$align.center
+                  },
+                  layout:function(make){
+                    make.top.equalTo(15);
+                    make.left.equalTo(90)
+                  }
+                }
+              ]
+            }
+          })
+        }])
       }
     }]
   
