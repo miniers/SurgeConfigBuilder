@@ -124,10 +124,10 @@
     }
   }
   
-  function saveConfig(result) {
+  function saveConfig() {
     var success = $drive.write({
       data: $data({
-        string: JSON.stringify(result)
+        string: JSON.stringify(config)
       }),
       path: "surge.conf"
     })
@@ -238,14 +238,14 @@ ${config.MITM}`;
       })
     })
   }
-  const removeDeleteRule = (rule) => {
+  const removeDeleteRule = function(rule){
     const deleteds = config.Delete.split('\n');
     const orgRules = rule.split('\n');
     let result = [],
       deleted = [];
-    orgRules.forEach((line) => {
+    orgRules.forEach(function(line){
       let isDeleted = false;
-      deleteds.forEach(del => {
+      deleteds.forEach(function(del){
         if (del&&line.match(del)) {
           isDeleted = true;
         }
@@ -277,20 +277,17 @@ ${config.MITM}`;
       events: {
         tapped: function (sender) {
           $ui.loading(true)
-          let result = {
-            ...config
-          };
-          fields.forEach((cus) => {
+  
+          fields.forEach(function(cus) {
             let cfg = cus;
             if (typeof cus === 'string') {
               cfg = {
                 name: cus
               }
             }
-            result[cfg.name] = $(cfg.name).text
+            config[cfg.name] = $(cfg.name).text
           })
-          config = result;
-          saveConfig(result);
+          saveConfig();
           build()
           // //selectItem()
         }
@@ -330,7 +327,7 @@ ${config.MITM}`;
           }
         }).concat([{
           title:`远程规则开关`,
-          rows:surgeList.map((key)=>{
+          rows:surgeList.map(function(key){
             return {
               type:'view',
               props:{},
