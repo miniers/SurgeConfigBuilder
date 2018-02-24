@@ -135,6 +135,7 @@
   
   function buildFile() {
     var ProxyList = getProxyName(config.Proxy).join(',');
+    var cushostname = config.hostname.split('\n').join(',')
     var result = `
 [General]
 ${config.General}
@@ -198,7 +199,7 @@ ${config.SSID}
 
 # MITM
 ${config.MITM?'[MITM]':''}
-${config.MITM?`hostname=${config.hostname.split('\n').join(',')},${remoteRule.Hostname.split('\n').join(',')}`:''}
+${config.MITM?`hostname=${cushostname?cushostname+",":""}${remoteRule.Hostname.split('\n').join(',')}`:''}
 ${config.MITM}`;
     $share.sheet([config.filename || "surge.conf", $data({
       string: result
