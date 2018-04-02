@@ -6,7 +6,7 @@
 const _ = require('lodash');
 $app.autoKeyboardEnabled = true;
 $app.keyboardToolbarEnabled = true;
-let baseUrl = "https://raw.githubusercontent.com/lhie1/Surge/master/Auto/",
+let baseUrl = "https://raw.githubusercontent.com/lhie1/Surge/master/",
   surgeList = [
     'Apple',
     'DIRECT',
@@ -16,10 +16,14 @@ let baseUrl = "https://raw.githubusercontent.com/lhie1/Surge/master/Auto/",
     'REJECT',
     'URL REJECT',
     'URL REWRITE',
+    {
+      name:'TestFlight',
+      disabled:true,
+      path:'Surge/TestFlight'
+    }
   ];
 let remoteIsDone = 0;
 let remoteRule = {};
-let ruleCount={};
 const fields = [{ 
     name: 'filename',
     text: '生成的配置文件名(必填)'
@@ -78,7 +82,6 @@ function initConfig() {
 
   config = {
     filename: 'surge.conf',
-    ruleCount:{},
     remoteSwitch:{},
     'General': `// Auto
 loglevel = notify
@@ -173,7 +176,7 @@ ${config.ipRule}
 // Detect local network
 GEOIP,CN,🍂 Domestic
 // Use Proxy for all others
-FINAL,☁️ Others
+FINAL,☁️ Others,dns-failed
 
 [Host]
 # my host  
@@ -189,6 +192,9 @@ ${config.Rewrite}
 ${remoteRule['URL REWRITE']}
 # remote URL REJECT
 ${remoteRule['URL REJECT']}
+
+
+${remoteRule['TestFlight']}
 
 
 [SSID Setting]
@@ -211,14 +217,24 @@ function getProxyName(proxys) {
    
 function build() {
   _.forEach(surgeList, function (name) {
-    $console.info(name);
+    
+    let path;
+    let disabled;
+    if(_.isObject(name)){
+      path = name.path;
+      name = name.name;
+    }else{
+      path = `Auto/${name}`;
+    }
     if(config.remoteSwitch[name]===false){
       remoteIsDone++;
       remoteRule[name] = ''; 
       return;
     }
+    $console.info(name);
+    $console.info(encodeURI([baseUrl, path, '.conf'].join('')));
     $http.get({
-      url: encodeURI([baseUrl, name, '.conf'].join('')),
+      url: encodeURI([baseUrl, path, '.conf'].join('')),
       handler: function ({data}) {
         if(!data){
           $console.warn(`${name}拉取数据失败`) 
@@ -228,7 +244,6 @@ function build() {
         remoteIsDone++;
         if (remoteIsDone >= surgeList.length) {  
           saveConfig();
-          $ui.toast(`获取最新配置成功，历史规则数量${config.ruleCount}`)
           buildFile();
         }
       } 
@@ -238,7 +253,6 @@ function build() {
 const removeDeleteRule = function(rule,name){
   const deleteds = config.Delete.split('\n');
   const orgRules = rule.split('\n');
-  ruleCount[name] = orgRules.length;
   let result = [],
     deleted = [];
   orgRules.forEach(function(line){
@@ -325,6 +339,13 @@ $ui.render({
       }).concat([{
         title:`远程规则开关`,
         rows:surgeList.map(function(key){
+          if(_.isObject(key)){
+            const disabled = key.disabled;
+            key = key.name;
+            if(disabled && _.isUndefined(config.remoteSwitch[key])){
+              config.remoteSwitch[key] = false;
+            }
+          }
           return {
             type:'view',
             props:{},
