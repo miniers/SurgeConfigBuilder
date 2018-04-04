@@ -6,7 +6,7 @@
 const _ = require('lodash');
 $app.autoKeyboardEnabled = true;
 $app.keyboardToolbarEnabled = true;
-let baseUrl = "https://raw.githubusercontent.com/lhie1/Surge/master/",
+let baseUrl = "https://raw.githubusercontent.com/lhie1/Rules/master/",
   surgeList = [
     'Apple',
     'DIRECT',
@@ -15,7 +15,16 @@ let baseUrl = "https://raw.githubusercontent.com/lhie1/Surge/master/",
     'PROXY',
     'REJECT',
     'URL REJECT',
-    'URL REWRITE',
+    {
+      name:'URL Rewrite',
+      path:'Surge/Prototype',
+      regex:'\\[URL Rewrite\\]\\n(.*)\\[Header Rewrite'
+    },
+    {
+      name:'Header Rewrite',
+      path:'Surge/Prototype',
+      regex:'\\[Header Rewrite\\]\\n(.*)\\[SSID Setting'
+    },
     {
       name:'TestFlight',
       disabled:true,
@@ -67,10 +76,10 @@ const fields = [{
 ];
 
 let config;
-if ($drive.exists("surge.conf")) {
+if ($drive.exists("surge.json")) {
   try {
-    let file = $drive.read("surge.conf");
-    config = JSON.parse($drive.read("surge.conf").string)
+    let file = $drive.read("surge.json");
+    config = JSON.parse($drive.read("surge.json").string)
   } catch (err) {
     initConfig()
   }
@@ -134,7 +143,7 @@ function saveConfig() {
     data: $data({
       string: JSON.stringify(config)
     }),
-    path: "surge.conf"
+    path: "surge.json"
   })
 }
 function buildFile() {
@@ -184,14 +193,18 @@ ${config.Host}
 # remote HOST
 ${remoteRule['HOST']}
 
-
+ 
 [URL Rewrite] 
 # my Rewrite
 ${config.Rewrite}
-# remote URL REWRITE
-${remoteRule['URL REWRITE']}
+# remote URL Rewrite
+${remoteRule['URL Rewrite']}
 # remote URL REJECT
 ${remoteRule['URL REJECT']}
+
+[Header Rewrite] 
+# remote Header Rewrite
+${remoteRule['Header Rewrite']}
 
 
 ${remoteRule['TestFlight']}
@@ -218,9 +231,10 @@ function getProxyName(proxys) {
 function build() {
   _.forEach(surgeList, function (name) {
     
-    let path;
+    let path,regex;
     let disabled;
     if(_.isObject(name)){
+      regex = name.regex;
       path = name.path;
       name = name.name;
     }else{
@@ -241,6 +255,9 @@ function build() {
         }
         
         remoteRule[name] = removeDeleteRule(data, name);
+        if(regex&&remoteRule[name]){
+          remoteRule[name] = _.get(remoteRule[name].match(new RegExp(regex,'s')),1,remoteRule[name])
+        }
         remoteIsDone++;
         if (remoteIsDone >= surgeList.length) {  
           saveConfig();
