@@ -16,24 +16,22 @@ let baseUrl = "https://raw.githubusercontent.com/lhie1/Rules/master/",
     'REJECT',
     'URL REJECT',
     {
-      name:'URL Rewrite',
-      path:'Surge/Prototype',
-      regex:'\\[URL Rewrite\\]\\n(.*)\\[Header Rewrite'
+      name: 'URL Rewrite',
+      path: 'Surge/Prototype',
+      regex: '\\[URL Rewrite\\]\\n(.*)\\[Header Rewrite'
     },
     {
-      name:'Header Rewrite',
-      path:'Surge/Prototype',
-      regex:'\\[Header Rewrite\\]\\n(.*)\\[SSID Setting'
+      name: 'Header Rewrite',
+      path: 'Surge/Prototype',
+      regex: '\\[Header Rewrite\\]\\n(.*)\\[SSID Setting'
     },
     {
-      name:'TestFlight',
-      disabled:true,
-      path:'Surge/TestFlight'
+      name: 'TestFlight',
+      disabled: true,
+      path: 'Surge/TestFlight'
     }
   ];
-let remoteIsDone = 0;
-let remoteRule = {};
-const fields = [{ 
+const fields = [{
     name: 'filename',
     text: '生成的配置文件名(必填)'
   },
@@ -81,9 +79,11 @@ if ($drive.exists("surge.json")) {
     let file = $drive.read("surge.json");
     config = JSON.parse($drive.read("surge.json").string)
   } catch (err) {
+    $ui.toast("配置解析错误");
     initConfig()
   }
 } else {
+  $ui.toast("未找到历史配置，已使用默认配置");
   initConfig()
 }
 //初始化配置
@@ -91,7 +91,7 @@ function initConfig() {
 
   config = {
     filename: 'surge.conf',
-    remoteSwitch:{},
+    remoteSwitch: {},
     'General': `// Auto
 loglevel = notify
 dns-server = system
@@ -146,7 +146,8 @@ function saveConfig() {
     path: "surge.json"
   })
 }
-function buildFile() {
+
+function buildFile(remoteRule) {
   var ProxyList = getProxyName(config.Proxy).join(',');
   var cushostname = config.hostname.split('\n').join(',')
   var result = `
@@ -227,55 +228,61 @@ ${config.MITM}`;
 function getProxyName(proxys) {
   return proxys.match(/.+(?=\s=\s(custom|http|https|socks5|socks5-tls))/g)
 }
-   
+
 function build() {
-  _.forEach(surgeList, function (name) {
-    
-    let path,regex;
-    let disabled;
-    if(_.isObject(name)){
-      regex = name.regex;
-      path = name.path;
-      name = name.name;
-    }else{
-      path = `Auto/${name}`;
-    }
-    if(config.remoteSwitch[name]===false){
-      remoteIsDone++;
-      remoteRule[name] = ''; 
-      return;
-    }
-    $console.info(name);
-    $console.info(encodeURI([baseUrl, path, '.conf'].join('')));
-    $http.get({
-      url: encodeURI([baseUrl, path, '.conf'].join('')),
-      handler: function ({data}) {
-        if(!data){
-          $console.warn(`${name}拉取数据失败`) 
+  Promise.all(surgeList.map((name) => {
+    return new Promise((resolve, reject) => {
+      let path, regex;
+      let disabled, result;
+      if (_.isObject(name)) {
+        regex = name.regex;
+        path = name.path;
+        name = name.name;
+      } else {
+        path = `Auto/${name}`;
+      }
+      if (config.remoteSwitch[name] === false) {
+        result = '';
+        resolve([
+          name,
+          result
+        ])
+        return;
+      }
+      $http.get({
+        url: encodeURI([baseUrl, path, '.conf'].join('')),
+        handler: function ({
+          data
+        }) {
+          if (!data) {
+            $console.warn(`${name}拉取数据失败`)
+          }
+          result = removeDeleteRule(data, name);
+          if (regex && result) {
+            result = _.get(result.match(new RegExp(regex, 's')), 1, result)
+          }
+          resolve([
+            name,
+            result
+          ])
         }
-        
-        remoteRule[name] = removeDeleteRule(data, name);
-        if(regex&&remoteRule[name]){
-          remoteRule[name] = _.get(remoteRule[name].match(new RegExp(regex,'s')),1,remoteRule[name])
-        }
-        remoteIsDone++;
-        if (remoteIsDone >= surgeList.length) {  
-          saveConfig();
-          buildFile();
-        }
-      } 
+      })
     })
+
+  })).then((results) => {
+    saveConfig();
+    buildFile(_.fromPairs(results));
   })
 }
-const removeDeleteRule = function(rule,name){
+const removeDeleteRule = function (rule, name) {
   const deleteds = config.Delete.split('\n');
   const orgRules = rule.split('\n');
   let result = [],
     deleted = [];
-  orgRules.forEach(function(line){
+  orgRules.forEach(function (line) {
     let isDeleted = false;
-    deleteds.forEach(function(del){
-      if (del&&line.match(del)) {
+    deleteds.forEach(function (del) {
+      if (del && line.match(del)) {
         isDeleted = true;
       }
     });
@@ -284,7 +291,7 @@ const removeDeleteRule = function(rule,name){
   // $ui.alert(deleted.join('\n'))
   return result.join('\n')
 };
-const changeRemoteSwitch=function(key){
+const changeRemoteSwitch = function (key) {
   let switchBtn = $(`switch-${key}`);
   config.remoteSwitch[key] = !switchBtn.on;
   switchBtn.on = config.remoteSwitch[key];
@@ -307,7 +314,7 @@ $ui.render({
       tapped: function (sender) {
         $ui.loading(true)
 
-        fields.forEach(function(cus) {
+        fields.forEach(function (cus) {
           let cfg = cus;
           if (typeof cus === 'string') {
             cfg = {
@@ -326,10 +333,10 @@ $ui.render({
       make.left.bottom.right.equalTo(0)
       make.top.equalTo($("button").bottom).offset(0)
     },
-    events:{
-      rowHeight:function(sender,indexPath){
-      
-        return fields.length === indexPath.section?50:150;
+    events: {
+      rowHeight: function (sender, indexPath) {
+
+        return fields.length === indexPath.section ? 50 : 150;
       }
     },
     props: {
@@ -354,47 +361,46 @@ $ui.render({
           }]
         }
       }).concat([{
-        title:`远程规则开关`,
-        rows:surgeList.map(function(key){
-          if(_.isObject(key)){
+        title: `远程规则开关`,
+        rows: surgeList.map(function (key) {
+          if (_.isObject(key)) {
             const disabled = key.disabled;
             key = key.name;
-            if(disabled && _.isUndefined(config.remoteSwitch[key])){
+            if (disabled && _.isUndefined(config.remoteSwitch[key])) {
               config.remoteSwitch[key] = false;
             }
           }
           return {
-            type:'view',
-            props:{},
-            layout:$layout.fill,
-            events:{
-              tapped:function(sender){
+            type: 'view',
+            props: {},
+            layout: $layout.fill,
+            events: {
+              tapped: function (sender) {
                 changeRemoteSwitch(key);
               }
             },
-            views:[
-              {
-                type:`switch`,
-                props:{
-                  id:`switch-${key}`,
-                  on:config.remoteSwitch[key]!==false
+            views: [{
+                type: `switch`,
+                props: {
+                  id: `switch-${key}`,
+                  on: config.remoteSwitch[key] !== false
                 },
-                layout:function(make,view){
+                layout: function (make, view) {
                   make.left.top.equalTo(10)
                 },
-                events:{
-                  changed:function(sender){
+                events: {
+                  changed: function (sender) {
                     changeRemoteSwitch(key);
                   }
                 }
               },
               {
-                type:'label',
-                props:{
-                  text:key,
-                  align:$align.center
+                type: 'label',
+                props: {
+                  text: key,
+                  align: $align.center
                 },
-                layout:function(make){
+                layout: function (make) {
                   make.top.equalTo(15);
                   make.left.equalTo(90)
                 }
